@@ -1,0 +1,23 @@
+[build]
+builder = "nixpacks"
+nixpacks_plan = '''
+{
+  "providers": ["python"],
+  "phases": {
+    "setup": {
+      "nixPkgs": ["python3", "python3.pkgs.pip"],
+      "cmds": ["pip install --upgrade pip"]
+    },
+    "install": {
+      "cmds": ["pip install -r requirements.txt"]
+    }
+  },
+  "variables": {
+    "FLASK_ENV": "production"
+  }
+}
+'''
+
+[deploy]
+startCommand = "gunicorn app:app"
+healthcheckPath = "/"

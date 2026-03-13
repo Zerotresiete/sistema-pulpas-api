@@ -1,0 +1,98 @@
+from flask import Flask, jsonify, request
+from supabase import create_client, Client
+import os
+from datetime import datetime
+
+# =============================================
+# CONFIGURACIÓN DE SUPABASE (TUS DATOS)
+# =============================================
+url = "https://fhsdihcxknfxzgggreoi.supabase.co"  # TU URL
+key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoc2RpaGN4a25meHpnZ2dyZW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMzk5NzksImV4cCI6MjA4NzcxNTk3OX0.fCdWI0UIa02VJ1-jCZCEzYWlBAY1lROnnxwb9wOqt1w"  # TU anon key
+
+supabase: Client = create_client(url, key)
+app = Flask(__name__)
+
+# =============================================
+# RUTAS DE PRUEBA
+# =============================================
+
+@app.route('/')
+def home():
+    return jsonify({
+        "mensaje": "🐵 SISTEMA DE PULPAS API",
+        "version": "1.0",
+        "endpoints": [
+            "/productos",
+            "/productos/<id>",
+            "/terceros",
+            "/compras",
+            "/ventas",
+            "/produccion"
+        ]
+    })
+
+@app.route('/test-db')
+def test_db():
+    try:
+        response = supabase.table('productos').select("*").limit(1).execute()
+        return jsonify({"conexion": "exitosa", "mensaje": "Base de datos conectada"})
+    except Exception as e:
+        return jsonify({"conexion": "fallo", "error": str(e)})
+
+# =============================================
+# MÓDULO 1: PRODUCTOS
+# =============================================
+
+@app.route('/productos', methods=['GET'])
+def get_productos():
+    """Obtener todos los productos"""
+    try:
+        response = supabase.table('productos').select("*").execute()
+        return jsonify(response.data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/productos/<int:id>', methods=['GET'])
+def get_producto(id):
+    """Obtener un producto por ID"""
+    try:
+        response = supabase.table('productos').select("*").eq('id', id).execute()
+        if response.data:
+            return jsonify(response.data[0])
+        return jsonify({"error": "Producto no encontrado"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/productos', methods=['POST'])
+def create_producto():
+    """Crear un nuevo producto"""
+    try:
+        data = request.get_json()
+        
+        # Validar datos mínimos
+        if not data.get('codigo') or not data.get('nombre'):
+            return jsonify({"error": "código y nombre son requeridos"}), 400
+        
+        nuevo_producto = {
+            "codigo": data['codigo'],
+            "nombre": data['nombre'],
+            "descripcion": data.get('descripcion'),
+            "tipo": data.get('tipo', 'materia_prima'),
+            "unidad_medida": data.get('unidad_medida', 'kg'),
+            "stock_minimo": data.get('stock_minimo', 0)
+        }
+        
+        response = supabase.table('productos').insert(nuevo_producto).execute()
+        return jsonify(response.data[0]), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/productos/<int:id>', methods=['PUT'])
+def update_producto(id):
+    """Actualizar un producto"""
+    try:
+        data = request.get_json()
+        response = supabase.table('productos').update(data).eq('id', id).execute()
+        if response.data:
+            return jsonify(response.data[0])
+        return jsonify({"error":

@@ -580,4 +580,14 @@ if __name__ == '__main__':
     print("      POST   /produccion")
     print("="*50 + "\n")
     
+    # =============================================
+# INICIO DEL SERVIDOR - VERSIÓN PARA RAILWAY
+# =============================================
+
+if __name__ == '__main__':
+    # Solo para desarrollo local
+    print("🐵 SISTEMA DE PULPAS API - MODO LOCAL")
     app.run(debug=True, host='0.0.0.0', port=5000)
+else:
+    # Para Railway (gunicorn)
+    print("🐵 SISTEMA DE PULPAS API - INICIANDO EN RAILWAY")

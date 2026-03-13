@@ -580,14 +580,13 @@ if __name__ == '__main__':
     print("      POST   /produccion")
     print("="*50 + "\n")
     
-    # =============================================
+   # =============================================
 # INICIO DEL SERVIDOR - VERSIÓN PARA RAILWAY
 # =============================================
 
 if __name__ == '__main__':
-    # Solo para desarrollo local
-    print("🐵 SISTEMA DE PULPAS API - MODO LOCAL")
-    app.run(debug=True, host='0.0.0.0', port=5000)
-else:
-    # Para Railway (gunicorn)
-    print("🐵 SISTEMA DE PULPAS API - INICIANDO EN RAILWAY")
+    # Puerto para Railway (lo asigna automáticamente)
+    port = int(os.environ.get('PORT', 5000))
+    print(f"🐵 Iniciando servidor en puerto {port}")
+    print(f"📡 Variables de entorno cargadas: {bool(os.getenv('SUPABASE_URL'))}")
+    app.run(host='0.0.0.0', port=port, debug=False)

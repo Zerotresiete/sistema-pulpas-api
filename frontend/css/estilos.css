@@ -1,0 +1,88 @@
+/* Estilos personalizados */
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.table {
+    background-color: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.table thead {
+    background-color: #198754;
+    color: white;
+}
+
+.btn-success {
+    background-color: #198754;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+}
+
+.btn-success:hover {
+    background-color: #146c43;
+}
+
+.modal-content {
+    border-radius: 10px;
+}
+
+.nav-tabs .nav-link {
+    color: #198754;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link.active {
+    color: #198754;
+    font-weight: 600;
+    border-bottom: 3px solid #198754;
+}
+
+/* Para móviles */
+@media (max-width: 768px) {
+    .card h2 {
+        font-size: 1.5rem;
+    }
+    
+    .table {
+        font-size: 0.9rem;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+}
+/* Estilos para ECUAPULP */
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.navbar-brand small {
+    font-size: 0.9rem;
+    font-weight: 300;
+    opacity: 0.8;
+}
+
+footer {
+    font-size: 0.9rem;
+}
+
+footer strong {
+    color: #198754;
+}

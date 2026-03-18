@@ -229,7 +229,91 @@
             </div>
         </div>
     </div>
-
+    <!-- Modal para Venta (mejorado) -->
+    <div class="modal fade" id="modalVenta" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-shopping-cart me-2"></i>Nueva Venta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formVenta">
+                        <!-- Datos de la venta -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Cliente</label>
+                                <select class="form-control" id="ventaCliente" required>
+                                    <option value="">Seleccione un cliente...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha pactada de pago</label>
+                                <input type="date" class="form-control" id="ventaFechaPago">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="ventaObservaciones" rows="2"></textarea>
+                        </div>
+                        
+                        <!-- Línea de productos -->
+                        <hr>
+                        <h6 class="mb-3">Productos</h6>
+                        
+                        <div id="contenedor-productos">
+                            <!-- Aquí se agregarán dinámicamente los productos -->
+                            <div class="row mb-2 producto-item">
+                                <div class="col-md-5">
+                                    <select class="form-control producto-select" required>
+                                        <option value="">Seleccionar producto...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" class="form-control producto-cantidad" 
+                                           placeholder="Cantidad" min="0.1" step="0.1" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" class="form-control producto-precio" 
+                                           placeholder="Precio unit." min="0" step="100" required>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-danger btn-sm eliminar-producto" style="display: none;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col">
+                                <button type="button" class="btn btn-sm btn-success" id="agregarProducto">
+                                    <i class="fas fa-plus me-2"></i>Agregar otro producto
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Totales -->
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5>Total: $<span id="ventaTotal">0</span></h5>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="guardarVenta()">
+                        <i class="fas fa-save me-2"></i>Guardar Venta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- FOOTER - ECUAPULP -->
     <footer class="container mt-5 pt-4 border-top text-center text-muted">
         <p class="small">

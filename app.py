@@ -593,10 +593,100 @@ def serve_frontend():
 def serve_frontend_files(path):
     """Sirve archivos estáticos (CSS, JS, imágenes)"""
     return send_from_directory('frontend', path)
+
+# =============================================
+# MÓDULO DE VENTAS - CON DETALLE
+# =============================================
+
+@app.route('/ventas/detalle', methods=['POST'])
+def crear_venta_con_detalle():
+    """Crear una venta con sus productos"""
+    try:
+        data = request.get_json()
+        
+        # Validar datos básicos
+        if not data.get('cliente_id'):
+            return jsonify({"error": "Cliente requerido"}), 400
+        if not data.get('productos') or len(data['productos']) == 0:
+            return jsonify({"error": "Debe incluir productos"}), 400
+        
+        # Calcular total
+        total = sum(item['cantidad'] * item['precio_unitario'] 
+                   for item in data['productos'])
+        
+        # 1. Crear la venta
+        nueva_venta = {
+            "cliente_id": data['cliente_id'],
+            "fecha_venta": data.get('fecha_venta', datetime.now().strftime("%Y-%m-%d")),
+            "fecha_pactada_pago": data.get('fecha_pactada_pago'),
+            "estado_pago": data.get('estado_pago', 'pendiente'),
+            "total": total,
+            "observaciones": data.get('observaciones')
+        }
+        
+        venta_response = supabase.table('ventas').insert(nueva_venta).execute()
+        venta_id = venta_response.data[0]['id']
+        
+        # 2. Insertar cada producto
+        for item in data['productos']:
+            detalle = {
+                "venta_id": venta_id,
+                "producto_id": item['producto_id'],
+                "cantidad": item['cantidad'],
+                "precio_unitario": item['precio_unitario'],
+                "subtotal": item['cantidad'] * item['precio_unitario']
+            }
+            supabase.table('detalle_ventas').insert(detalle).execute()
+        
+        # 3. Obtener la venta completa con detalles
+        venta_completa = supabase.table('ventas').select("*, cliente:terceros(*)").eq('id', venta_id).execute()
+        detalles = supabase.table('detalle_ventas').select("*, producto:productos(*)").eq('venta_id', venta_id).execute()
+        
+        return jsonify({
+            "mensaje": "Venta creada exitosamente",
+            "venta": venta_completa.data[0],
+            "detalles": detalles.data
+        }), 201
+        
+    except Exception as e:
+        return manejar_error(e, "Error creando venta")
+
+@app.route('/ventas/<int:id>/detalle', methods=['GET'])
+def get_venta_con_detalle(id):
+    """Obtener una venta con todos sus detalles"""
+    try:
+        venta = supabase.table('ventas').select("*, cliente:terceros(*)").eq('id', id).execute()
+        if not venta.data:
+            return jsonify({"error": "Venta no encontrada"}), 404
+        
+        detalles = supabase.table('detalle_ventas').select("*, producto:productos(*)").eq('venta_id', id).execute()
+        
+        return jsonify({
+            "venta": venta.data[0],
+            "detalles": detalles.data,
+            "total_productos": len(detalles.data)
+        })
+    except Exception as e:
+        return manejar_error(e, f"Error obteniendo venta {id}")
+
+@app.route('/productos/con-precio', methods=['GET'])
+def get_productos_con_precio():
+    """Obtener productos para selector de ventas"""
+    try:
+        response = supabase.table('productos').select("id, codigo, nombre, tipo, unidad_medida").execute()
+        
+        # Aquí podrías agregar precios si tuvieras una tabla de precios
+        productos_con_precio = response.data
+        for p in productos_con_precio:
+            p['precio_sugerido'] = 5000  # Precio por defecto, luego lo haremos configurable
+        
+        return jsonify(productos_con_precio)
+    except Exception as e:
+        return manejar_error(e, "Error obteniendo productos")
+
    # =============================================
 # INICIO DEL SERVIDOR - VERSIÓN PARA RAILWAY
 # =============================================
-
 if __name__ == '__main__':
     # Puerto para Railway (lo asigna automáticamente)
     port = int(os.environ.get('PORT', 5000))

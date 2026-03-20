@@ -1,7 +1,7 @@
 // =============================================
 // CONFIGURACIÓN
 // =============================================
-const API_URL = 'http://127.0.0.1:5000'; // Para pruebas locales
+const API_URL = 'http://192.168.100.21:5000'; // Para pruebas locales
 
 // =============================================
 // FUNCIONES DE UTILIDAD

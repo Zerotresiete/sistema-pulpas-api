@@ -338,7 +338,29 @@ def get_terceros_por_tipo(tipo):
 # MÓDULO 3: COMPRAS (MEJORADO)
 # =============================================
 
+@app.route('/compras', methods=['GET'])
+def get_compras():
+    """Obtener todas las compras"""
+    try:
+        response = supabase.table('vista_compras').select("*").execute()
+        return jsonify(response.data)
+    except Exception as e:
+        # Si la vista no existe, usar consulta directa
+        response = supabase.table('compras').select("*, proveedor:terceros(*)").execute()
+        return jsonify(response.data)
 
+@app.route('/compras/<int:id>', methods=['GET'])
+def get_compra_detalle(id):
+    """Obtener detalle de una compra específica"""
+    try:
+        response = supabase.table('compras').select("*, proveedor:terceros(*)").eq('id', id).execute()
+        
+        if response.data:
+            return jsonify(response.data[0])
+        
+        return jsonify({"error": "Compra no encontrada"}), 404
+    except Exception as e:
+        return manejar_error(e, f"Error obteniendo compra {id}")
 
 @app.route('/compras', methods=['POST'])
 def create_compra():
@@ -369,9 +391,7 @@ def create_compra():
     except Exception as e:
         return manejar_error(e, "Error creando compra")
 
-
-
-#==============================================
+# =============================================
 # MÓDULO 4: VENTAS (MEJORADO)
 # =============================================
 

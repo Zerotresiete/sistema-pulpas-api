@@ -338,7 +338,28 @@ def get_terceros_por_tipo(tipo):
 # MÓDULO 3: COMPRAS (MEJORADO)
 # =============================================
 
-
+@app.route('/compras', methods=['GET'])
+def get_compras():
+   """Obtener todas las compras"""
+   try:
+        response = supabase.table('vista_compras').select("*").execute()
+        return jsonify(response.data)
+    except Exception as e:
+        # Si la vista no existe, usar consulta directa
+        response = supabase.table('compras').select("*, proveedor:terceros(*)").execute()
+        return jsonify(response.data)
+@app.route('/compras/<int:id>', methods=['GET'])
+def get_compra_detalle(id):
+    """Obtener detalle de una compra específica"""
+    try:
+        response = supabase.table('compras').select("*, proveedor:terceros(*)").eq('id', id).execute()
+        
+        if response.data:
+            return jsonify(response.data[0])
+        
+        return jsonify({"error": "Compra no encontrada"}), 404
+    except Exception as e:
+        return manejar_error(e, f"Error obteniendo compra {id}")
 
 @app.route('/compras', methods=['POST'])
 def create_compra():
@@ -368,10 +389,67 @@ def create_compra():
         }), 201
     except Exception as e:
         return manejar_error(e, "Error creando compra")
+@app.route('/compras/<int:id>/recibir', methods=['PUT'])
+def recibir_compra(id):
+    """Marcar compra como recibida (actualiza stock automáticamente)"""
+    try:
+        compra = supabase.table('compras').select("*").eq('id', id).execute()
+        if not compra.data:
+            return jsonify({"error": "Compra no encontrada"}), 404
+        
+        if compra.data[0]['estado'] == 'recibida':
+            return jsonify({"error": "Compra ya fue recibida"}), 400
+        
+        supabase.table('compras').update({
+            'estado': 'recibida',
+            'fecha_entrega': datetime.now().strftime("%Y-%m-%d")
+        }).eq('id', id).execute()
+        
+        return jsonify({"mensaje": "Compra recibida y stock actualizado"})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
+@app.route('/compras/<int:id>/pagar', methods=['PUT'])
+def pagar_compra(id):
+    """Registrar pago de una compra"""
+    try:
+        data = request.get_json()
+        
+        compra = supabase.table('compras').select("*").eq('id', id).execute()
+        if not compra.data:
+            return jsonify({"error": "Compra no encontrada"}), 404
+        
+        pago = {
+            "compra_id": id,
+            "fecha_pago": data.get('fecha_pago', datetime.now().strftime("%Y-%m-%d")),
+            "monto": data.get('monto', compra.data[0]['total']),
+            "metodo_pago": data.get('metodo_pago'),
+            "referencia": data.get('referencia'),
+            "observaciones": data.get('observaciones')
+        }
+        supabase.table('pagos_proveedores').insert(pago).execute()
+        
+        supabase.table('compras').update({
+            'estado': 'pagada',
+            'fecha_pago': datetime.now().strftime("%Y-%m-%d")
+        }).eq('id', id).execute()
+        
+        return jsonify({"mensaje": "Pago registrado exitosamente"})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
+@app.route('/proveedores', methods=['GET'])
+def get_proveedores():
+    """Obtener todos los proveedores"""
+    try:
+        response = supabase.table('terceros').select("*").eq('tipo', 'proveedor').execute()
+        return jsonify(response.data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-#==============================================
+# =============================================
 # MÓDULO 4: VENTAS (MEJORADO)
 # =============================================
 
@@ -802,3 +880,4 @@ if __name__ == '__main__':
     print(f"🐵 Iniciando servidor en puerto {port}")
     print(f"📡 Variables de entorno cargadas: {bool(os.getenv('SUPABASE_URL'))}")
     app.run(host='0.0.0.0', port=port, debug=False)
+#

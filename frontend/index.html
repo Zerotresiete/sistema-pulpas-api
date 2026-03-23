@@ -80,23 +80,28 @@
         </div>
 
         <!-- Pestañas de navegación -->
-        <ul class="nav nav-tabs mb-4" id="miTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="productos-tab" data-bs-toggle="tab" data-bs-target="#productos" type="button" role="tab">
-                    <i class="fas fa-box me-2"></i>Productos
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas" type="button" role="tab">
-                    <i class="fas fa-shopping-cart me-2"></i>Ventas
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
-                    <i class="fas fa-users me-2"></i>Clientes
-                </button>
-            </li>
-        </ul>
+<ul class="nav nav-tabs mb-4" id="miTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="productos-tab" data-bs-toggle="tab" data-bs-target="#productos" type="button" role="tab">
+            <i class="fas fa-box me-2"></i>Productos
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas" type="button" role="tab">
+            <i class="fas fa-shopping-cart me-2"></i>Ventas
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
+            <i class="fas fa-users me-2"></i>Clientes
+        </button>
+    </li>
+        <li class="nav-item" role="presentation">
+        <button class="nav-link" id="compras-tab" data-bs-toggle="tab" data-bs-target="#compras" type="button" role="tab">
+            <i class="fas fa-truck me-2"></i>Compras
+        </button>
+    </li>
+</ul>
 
         <!-- Contenido de las pestañas -->
         <div class="tab-content" id="miTabContenido">
@@ -184,7 +189,65 @@
             </div>
         </div>
     </div>
-
+    <!-- Pestaña Compras -->
+<div class="tab-pane fade" id="compras" role="tabpanel">
+    <!-- Tarjetas de resumen -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-1">Compras Pendientes</h6>
+                    <h2 id="compras-pendientes" class="mb-0">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-1">Compras Recibidas</h6>
+                    <h2 id="compras-recibidas" class="mb-0">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-1">Total Gastado (Mes)</h6>
+                    <h2 id="total-gastado" class="mb-0">$0</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col">
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCompra">
+                <i class="fas fa-plus me-2"></i>Nueva Compra
+            </button>
+            <button class="btn btn-info" onclick="cargarCompras()">
+                <i class="fas fa-sync me-2"></i>Actualizar
+            </button>
+        </div>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Total</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-compras">
+                <tr><td colspan="6" class="text-center">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
     <!-- Modal para Producto -->
     <div class="modal fade" id="modalProducto" tabindex="-1">
         <div class="modal-dialog">
@@ -313,7 +376,88 @@
             </div>
         </div>
     </div>
-    <!-- FOOTER - ECUAPULP -->
+    <!-- Modal para Nueva Compra -->
+<div class="modal fade" id="modalCompra" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-truck me-2"></i>Nueva Compra
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCompra">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Proveedor</label>
+                            <select class="form-control" id="compraProveedor" required>
+                                <option value="">Seleccionar proveedor...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fecha Compra</label>
+                            <input type="date" class="form-control" id="compraFecha">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="compraObservaciones" rows="2"></textarea>
+                    </div>
+                    
+                    <hr>
+                    <h6 class="mb-3">Productos</h6>
+                    
+                    <div id="contenedor-productos-compra">
+                        <div class="row mb-2 producto-compra-item">
+                            <div class="col-md-5">
+                                <select class="form-control producto-select-compra" required>
+                                    <option value="">Seleccionar producto...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="number" class="form-control producto-cantidad-compra" 
+                                       placeholder="Cantidad" min="0.1" step="0.1" required>
+                            </div>
+                            <div class="col-md-3">
+                                <input type="number" class="form-control producto-precio-compra" 
+                                       placeholder="Precio unit." min="0" step="100" required>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-danger btn-sm eliminar-producto-compra" style="display: none;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col">
+                            <button type="button" class="btn btn-sm btn-success" id="agregarProductoCompra">
+                                <i class="fas fa-plus me-2"></i>Agregar otro producto
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5>Total: $<span id="compraTotal">0</span></h5>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="guardarCompra()">
+                    <i class="fas fa-save me-2"></i>Guardar Compra
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- FOOTER - ECUAPULP -->
     <footer class="container mt-5 pt-4 border-top text-center text-muted">
         <p class="small">
             <i class="fas fa-seedling me-2 text-success"></i>

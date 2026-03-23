@@ -1,8 +1,17 @@
 // =============================================
-// CONFIGURACIÓN
+// DETECCIÓN AUTOMÁTICA DE ENTORNO
 // =============================================
-const API_URL = 'https://web-production-4a4f03.up.railway.app';
-// const API_URL = 'http://127.0.0.1:5000'; // Para pruebas locales
+const API_URL = (() => {
+    // Si estamos en localhost o 127.0.0.1
+    if (window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1') {
+        return 'http://127.0.0.1:5000';
+    }
+    // Si estamos en Railway (o cualquier otro dominio)
+    return 'https://web-production-4a4f03.up.railway.app';
+})();
+
+console.log('🌐 API_URL:', API_URL);
 
 // =============================================
 // FUNCIONES DE UTILIDAD

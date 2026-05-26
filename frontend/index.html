@@ -3,483 +3,386 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ECUAPULP - Sistema de Ventas</title>
-    <!-- Bootstrap CSS -->
+    <title>ECUAPULP - Sistema de Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome para iconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Estilos personalizados -->
     <link rel="stylesheet" href="/frontend/css/estilos.css">
+    <style>
+        .card { border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .table-responsive { border-radius: 10px; overflow: hidden; }
+        .navbar-brand { font-weight: bold; }
+    </style>
 </head>
 <body>
-    <!-- Barra de navegación -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-success">
-        <div class="container">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-seedling me-2"></i>ECUAPULP		
-            </a>
-            <small class="d-none d-md-inline text-white-50 ms-2">Sistema de Ventas</small>
-        </div>
-    </nav>
-
-    <div class="container mt-4">
-	<div class="row mb-4">
-            <div class="col">
-                <div class="p-3 bg-light rounded">
-                    <h4 class="mb-0 text-success">
-                        <i class="fas fa-leaf me-2"></i>
-                        ECUAPULP - Control de Inventario y Ventas
-                    </h4>
+    <script>
+        // Verificar sesión al cargar la página
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/frontend/login.html';
+        }
+     </script>
+     <nav class="navbar navbar-dark bg-success">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex flex-column">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-leaf fa-2x me-2"></i>
+                <div>
+                    <span class="navbar-brand mb-0 d-block" style="font-size: 1.3rem;">ECUAPULP</span>
+                    <small class="text-white-50">Sistema de Control de Inventario</small>
                 </div>
             </div>
+            <span class="slogan text-white-50 small mt-1">
+                🇪🇨 Puro sabor de tu tierra
+            </span>
         </div>
-        <!-- Mensajes de alerta -->
-        <div id="alerta" class="alert d-none" role="alert"></div>
+        <div class="d-flex align-items-center">
+            <span class="text-white me-3" id="usuario-nombre">Usuario</span>
+            <a href="/frontend/usuarios.html" class="btn btn-outline-light me-2" id="adminLink" style="display: none;">
+                <i class="fas fa-users me-1"></i>Administrar Usuarios
+            </a>
+            <button class="btn btn-outline-light" onclick="cerrarSesion()">
+                <i class="fas fa-sign-out-alt me-1"></i>Salir
+            </button>
+        </div>
+    </div>
+</nav>
+
+    <div class="container mt-4">
+        <!-- Alerta -->
+        <div id="alerta" class="alert d-none"></div>
 
         <!-- Tarjetas de resumen -->
         <div class="row mb-4">
-            <div class="col-md-4 mb-3">
+            <div class="col-md-4">
                 <div class="card bg-primary text-white">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-subtitle mb-1">Total Productos</h6>
-                                <h2 id="total-productos" class="mb-0">-</h2>
-                            </div>
-                            <i class="fas fa-box fa-3x opacity-50"></i>
-                        </div>
+                        <h6>Total Productos</h6>
+                        <h2 id="total-productos" class="mb-0">-</h2>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-subtitle mb-1">Ventas Pendientes</h6>
-                                <h2 id="ventas-pendientes" class="mb-0">-</h2>
-                            </div>
-                            <i class="fas fa-clock fa-3x opacity-50"></i>
-                        </div>
-                    </div>
+            <div class="col-md-4">
+                <div class="card bg-warning text-white">
+                                              <div class="card-body">
+                        <h6>Ventas Pendientes</h6>
+                        <h2 id="ventas-pendientes" class="mb-0">-</h2>
+                    </div>          
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-md-4">                                         
                 <div class="card bg-info text-white">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-subtitle mb-1">Total a Cobrar</h6>
-                                <h2 id="total-cobrar" class="mb-0">$ -</h2>
-                            </div>
-                            <i class="fas fa-dollar-sign fa-3x opacity-50"></i>
-                        </div>
+                        <h6>Total a Cobrar</h6>
+                        <h2 id="total-cobrar" class="mb-0">$0</h2>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Pestañas de navegación -->
-<ul class="nav nav-tabs mb-4" id="miTab" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="productos-tab" data-bs-toggle="tab" data-bs-target="#productos" type="button" role="tab">
-            <i class="fas fa-box me-2"></i>Productos
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas" type="button" role="tab">
-            <i class="fas fa-shopping-cart me-2"></i>Ventas
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
-            <i class="fas fa-users me-2"></i>Clientes
-        </button>
-    </li>
-        <li class="nav-item" role="presentation">
-        <button class="nav-link" id="compras-tab" data-bs-toggle="tab" data-bs-target="#compras" type="button" role="tab">
-            <i class="fas fa-truck me-2"></i>Compras
-        </button>
-    </li>
-</ul>
+        <!-- Pestañas -->
+        <ul class="nav nav-tabs" id="miTab">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#productos">📦 Productos</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#ventas">💰 Ventas</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#terceros">👥 Terceros</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#compras">🚚 Compras</button></li>
+        </ul>
 
-        <!-- Contenido de las pestañas -->
-        <div class="tab-content" id="miTabContenido">
-            <!-- Pestaña Productos -->
-            <div class="tab-pane fade show active" id="productos" role="tabpanel">
-                <div class="row mb-3">
-                    <div class="col">
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalProducto">
-                            <i class="fas fa-plus me-2"></i>Nuevo Producto
-                        </button>
+        <div class="tab-content mt-3">
+            <!-- Productos -->
+            <div class="tab-pane fade show active" id="productos">
+                  <div class="row mb-3">
+                    <div class="col-md-6">
+                       <input type="text" id="buscadorProductos" class="form-control" placeholder="🔍 Buscar por código o nombre...">
                     </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <div class="col-md-6 text-end">
+                       <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalProducto">➕ Nuevo Producto</button>
+                    </div>
+                 </div>
+                 <div class="table-responsive">
+                    <table class="table table-striped">
                         <thead class="table-dark">
-                            <tr>
-                                <th>Código</th>
-                                <th>Nombre</th>
-                                <th>Tipo</th>
-                                <th>Unidad</th>
-                                <th>Stock Mínimo</th>
-                                <th>Acciones</th>
-                            </tr>
+                            <tr><th>Código</th><th>Nombre</th><th>Tipo</th><th>Unidad</th><th>Stock Actual / Min</th><th>Acciones</th></tr>
                         </thead>
                         <tbody id="tabla-productos">
-                            <tr><td colspan="6" class="text-center">Cargando productos...</td></tr>
+                            <tr><td colspan="6" class="text-center">Cargando...</span></span>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Pestaña Ventas -->
-            <div class="tab-pane fade" id="ventas" role="tabpanel">
-                <div class="row mb-3">
-                    <div class="col">
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalVenta">
-                            <i class="fas fa-plus me-2"></i>Nueva Venta
-                        </button>
-                    </div>
-                </div>
+            <!-- Ventas -->
+            <div class="tab-pane fade" id="ventas">
+                <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#modalVenta">➕ Nueva Venta</button>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped">
                         <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Fecha</th>
-                                <th>Cliente</th>
-                                <th>Total</th>
-                                <th>Estado</th>
-                                <th>Fecha Pactada</th>
-                            </tr>
+                            <tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Acciones</th></tr>
                         </thead>
                         <tbody id="tabla-ventas">
-                            <tr><td colspan="6" class="text-center">Cargando ventas...</td></tr>
+                            <tr><td colspan="6" class="text-center">Cargando...</span></span>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Pestaña Clientes -->
-            <div class="tab-pane fade" id="clientes" role="tabpanel">
-                <div class="row mb-3">
-                    <div class="col">
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCliente">
-                            <i class="fas fa-plus me-2"></i>Nuevo Cliente
-                        </button>
-                    </div>
-                </div>
+            <!-- Terceros -->
+            <div class="tab-pane fade" id="terceros">
+                <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#modalTercero">➕ Nuevo Tercero</button>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped">
                         <thead class="table-dark">
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Teléfono</th>
-                                <th>Email</th>
-                                <th>Forma de Pago</th>
-                                <th>Acciones</th>
-                            </tr>
+                            <tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Tipo</th><th>Acciones</th></tr>
                         </thead>
-                        <tbody id="tabla-clientes">
-                            <tr><td colspan="5" class="text-center">Cargando clientes...</td></tr>
+                        <tbody id="tabla-terceros">
+                            <tr><td colspan="5" class="text-center">Cargando...</span></span>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Compras -->
+            <div class="tab-pane fade" id="compras">
+                <button class="btn btn-success mb-3" data-bs-toggle="modal" data-bs-target="#modalCompra">➕ Nueva Compra</button>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead class="table-dark">
+                            <tr><th>ID</th><th>Fecha</th><th>Proveedor</th><th>Total</th><th>Estado</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody id="tabla-compras">
+                            <td><td colspan="6" class="text-center">Cargando...</span></span>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
-    <!-- Pestaña Compras -->
-<div class="tab-pane fade" id="compras" role="tabpanel">
-    <!-- Tarjetas de resumen -->
-    <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-1">Compras Pendientes</h6>
-                    <h2 id="compras-pendientes" class="mb-0">0</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-1">Compras Recibidas</h6>
-                    <h2 id="compras-recibidas" class="mb-0">0</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-1">Total Gastado (Mes)</h6>
-                    <h2 id="total-gastado" class="mb-0">$0</h2>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="row mb-3">
-        <div class="col">
-            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCompra">
-                <i class="fas fa-plus me-2"></i>Nueva Compra
-            </button>
-            <button class="btn btn-info" onclick="cargarCompras()">
-                <i class="fas fa-sync me-2"></i>Actualizar
-            </button>
-        </div>
-    </div>
-    
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead class="table-dark">
-                <tr>
-                    <th>ID</th>
-                    <th>Fecha</th>
-                    <th>Proveedor</th>
-                    <th>Total</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="tabla-compras">
-                <tr><td colspan="6" class="text-center">Cargando...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-    <!-- Modal para Producto -->
+
+    <!-- ==================== MODALES ==================== -->
+
+    <!-- Modal Producto -->
     <div class="modal fade" id="modalProducto" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title">Nuevo Producto</h5>
+                    <h5><i class="fas fa-box me-2"></i>Nuevo Producto</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="formProducto">
-                        <div class="mb-3">
-                            <label class="form-label">Código</label>
-                            <input type="text" class="form-control" id="productoCodigo" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="productoNombre" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tipo</label>
-                            <select class="form-control" id="productoTipo">
-                                <option value="materia_prima">Materia Prima</option>
-                                <option value="insumo">Insumo</option>
-                                <option value="producto_terminado">Producto Terminado</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Unidad de Medida</label>
-                            <input type="text" class="form-control" id="productoUnidad" value="kg">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Stock Mínimo</label>
-                            <input type="number" class="form-control" id="productoStockMinimo" value="0">
-                        </div>
-                    </form>
+                    <input type="text" id="prodCodigo" class="form-control mb-2" placeholder="Código">
+                    <input type="text" id="prodNombre" class="form-control mb-2" placeholder="Nombre">
+                    <select id="prodTipo" class="form-control mb-2">
+                        <option value="materia_prima">Materia Prima</option>
+                        <option value="insumo">Insumo</option>
+                        <option value="producto_terminado">Producto Terminado</option>
+                    </select>
+                    <input type="text" id="prodUnidad" class="form-control mb-2" placeholder="Unidad" value="kg">
+                    <input type="number" id="prodStockMin" class="form-control mb-2" placeholder="Stock Mínimo" step="0.01" value="0">
+                    <input type="number" id="prodPrecio" class="form-control mb-2" placeholder="Precio" step="0.01" value="0">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-success" onclick="guardarProducto()">Guardar</button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-success" onclick="guardarProducto()">Guardar</button>
                 </div>
             </div>
         </div>
     </div>
-    <!-- Modal para Venta (mejorado) -->
-    <div class="modal fade" id="modalVenta" tabindex="-1" aria-hidden="true">
+
+    <!-- Modal Editar Producto -->
+    <div class="modal fade" id="modalEditarProducto" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-white">
+                    <h5><i class="fas fa-edit me-2"></i>Editar Producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editProdId">
+                    <input type="text" id="editProdCodigo" class="form-control mb-2" placeholder="Código">
+                    <input type="text" id="editProdNombre" class="form-control mb-2" placeholder="Nombre">
+                    <select id="editProdTipo" class="form-control mb-2">
+                        <option value="materia_prima">Materia Prima</option>
+                        <option value="insumo">Insumo</option>
+                        <option value="producto_terminado">Producto Terminado</option>
+                    </select>
+                    <input type="text" id="editProdUnidad" class="form-control mb-2" placeholder="Unidad">
+                    <input type="number" id="editProdStockMin" class="form-control mb-2" placeholder="Stock Mínimo" step="0.01">
+                    <input type="number" id="editProdPrecio" class="form-control mb-2" placeholder="Precio" step="0.01">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-success" onclick="actualizarProducto()">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Venta -->
+    <div class="modal fade" id="modalVenta" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title">
-                        <i class="fas fa-shopping-cart me-2"></i>Nueva Venta
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <h5><i class="fas fa-shopping-cart me-2"></i>Nueva Venta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="formVenta">
-                        <!-- Datos de la venta -->
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Cliente</label>
-                                <select class="form-control" id="ventaCliente" required>
-                                    <option value="">Seleccione un cliente...</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Fecha pactada de pago</label>
-                                <input type="date" class="form-control" id="ventaFechaPago">
-                            </div>
+                    <select id="ventaCliente" class="form-control mb-2">
+                        <option value="">Seleccione un cliente...</option>
+                    </select>
+                    <input type="date" id="ventaFechaPago" class="form-control mb-2">
+                    <textarea id="ventaObservaciones" class="form-control mb-2" rows="2" placeholder="Observaciones"></textarea>
+                    <hr>
+                    <h6>Productos</h6>
+                    <div id="contenedor-productos">
+                        <div class="row mb-2 producto-item">
+                            <div class="col-md-5"><input type="text" class="form-control producto-buscar" placeholder="Escriba para buscar producto..." autocomplete="off" list="listaProductos">
+                                <input type="hidden" class="producto-id"></div>
+                            <div class="col-md-3"><input type="number" step="0.1" class="form-control producto-cantidad" placeholder="Cantidad"></div>
+                            <div class="col-md-3"><input type="number" step="0.01" class="form-control producto-precio" placeholder="Precio"></div>
+                            <div class="col-md-1"><button class="btn btn-danger btn-sm eliminar-producto" style="display:none">✖</button></div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Observaciones</label>
-                            <textarea class="form-control" id="ventaObservaciones" rows="2"></textarea>
-                        </div>
-                        
-                        <!-- Línea de productos -->
-                        <hr>
-                        <h6 class="mb-3">Productos</h6>
-                        
-                        <div id="contenedor-productos">
-                            <!-- Aquí se agregarán dinámicamente los productos -->
-                            <div class="row mb-2 producto-item">
-                                <div class="col-md-5">
-                                    <select class="form-control producto-select" required>
-                                        <option value="">Seleccionar producto...</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <input type="number" class="form-control producto-cantidad" 
-                                           placeholder="Cantidad" min="0.1" step="0.1" required>
-                                </div>
-                                <div class="col-md-3">
-                                    <input type="number" class="form-control producto-precio" 
-                                           placeholder="Precio unit." min="0" step="100" required>
-                                </div>
-                                <div class="col-md-1">
-                                    <button type="button" class="btn btn-danger btn-sm eliminar-producto" style="display: none;">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col">
-                                <button type="button" class="btn btn-sm btn-success" id="agregarProducto">
-                                    <i class="fas fa-plus me-2"></i>Agregar otro producto
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Totales -->
-                        <hr>
-                        <div class="row">
-                            <div class="col-md-8">
-                                <h5>Total: $<span id="ventaTotal">0</span></h5>
-                            </div>
-                        </div>
-                    </form>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-success mb-2" id="agregarProducto">➕ Agregar otro producto</button>
+                    <hr>
+                    <h5>Total: $<span id="ventaTotal">0</span></h5>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-success" onclick="guardarVenta()">
-                        <i class="fas fa-save me-2"></i>Guardar Venta
-                    </button>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-success" onclick="guardarVenta()">Guardar Venta</button>
                 </div>
             </div>
         </div>
     </div>
-    <!-- Modal para Nueva Compra -->
-<div class="modal fade" id="modalCompra" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-truck me-2"></i>Nueva Compra
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formCompra">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Proveedor</label>
-                            <select class="form-control" id="compraProveedor" required>
-                                <option value="">Seleccionar proveedor...</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Fecha Compra</label>
-                            <input type="date" class="form-control" id="compraFecha">
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Observaciones</label>
-                        <textarea class="form-control" id="compraObservaciones" rows="2"></textarea>
-                    </div>
-                    
-                    <hr>
-                    <h6 class="mb-3">Productos</h6>
-                    
-                    <div id="contenedor-productos-compra">
-                        <div class="row mb-2 producto-compra-item">
-                            <div class="col-md-5">
-                                <select class="form-control producto-select-compra" required>
-                                    <option value="">Seleccionar producto...</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <input type="number" class="form-control producto-cantidad-compra" 
-                                       placeholder="Cantidad" min="0.1" step="0.1" required>
-                            </div>
-                            <div class="col-md-3">
-                                <input type="number" class="form-control producto-precio-compra" 
-                                       placeholder="Precio unit." min="0" step="100" required>
-                            </div>
-                            <div class="col-md-1">
-                                <button type="button" class="btn btn-danger btn-sm eliminar-producto-compra" style="display: none;">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row mb-3">
-                        <div class="col">
-                            <button type="button" class="btn btn-sm btn-success" id="agregarProductoCompra">
-                                <i class="fas fa-plus me-2"></i>Agregar otro producto
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <hr>
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h5>Total: $<span id="compraTotal">0</span></h5>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="guardarCompra()">
-                    <i class="fas fa-save me-2"></i>Guardar Compra
-                </button>
+
+    <!-- Modal Tercero -->
+    <div class="modal fade" id="modalTercero" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 id="modalTerceroTitle"><i class="fas fa-user-plus me-2"></i>Nuevo Tercero</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="terceroId">
+                    <input type="text" id="terceroNombre" class="form-control mb-2" placeholder="Nombre">
+                    <input type="text" id="terceroTelefono" class="form-control mb-2" placeholder="Teléfono">
+                    <input type="email" id="terceroEmail" class="form-control mb-2" placeholder="Email">
+                    <input type="text" id="terceroFormaPago" class="form-control mb-2" placeholder="Forma de Pago">
+                    <select id="terceroTipo" class="form-control mb-2">
+                        <option value="cliente">Cliente</option>
+                        <option value="proveedor">Proveedor</option>
+                        <option value="ambos">Ambos</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-success" onclick="guardarTercero()">Guardar</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
-<!-- FOOTER - ECUAPULP -->
-    <footer class="container mt-5 pt-4 border-top text-center text-muted">
-        <p class="small">
-            <i class="fas fa-seedling me-2 text-success"></i>
-            <strong>ECUAPULP</strong> - Calidad en pulpas desde 2025
-            <br>
-            <span class="fst-italic">Sistema de Control de Inventario v1.0</span>
-	    </div>
-            <div class="col-12 mt-3 pt-2 border-top">
-                <p class="small text-muted mb-0">
-                    © 2026 - Desarrollado por <span class="text-success fw-bold">Leonardo</span>
-                    <br>
-                    <span class="fst-italic">Todos los derechos reservados</span>
-                </p>
+
+        <!-- Modal para Editar Venta -->
+    <div class="modal fade" id="modalEditarVenta" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-white">
+                    <h5><i class="fas fa-edit me-2"></i>Editar Venta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editVentaId">
+                    <select id="editVentaCliente" class="form-control mb-2"></select>
+                    <input type="date" id="editVentaFechaPago" class="form-control mb-2">
+                    <textarea id="editVentaObservaciones" class="form-control mb-2" rows="2" placeholder="Observaciones"></textarea>
+                    <hr>
+                    <h6>Productos</h6>
+                    <div id="editContenedorProductos"></div>
+                    <button type="button" class="btn btn-sm btn-success mb-2" id="editAgregarProducto">➕ Agregar otro producto</button>
+                    <hr>
+                    <h5>Total: $<span id="editVentaTotal">0</span></h5>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-success" onclick="guardarEdicionVenta()">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Compra -->
+    <div class="modal fade" id="modalCompra" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5><i class="fas fa-truck me-2"></i>Nueva Compra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <select id="compraProveedor" class="form-control mb-2">
+                        <option value="">Seleccione un proveedor...</option>
+                    </select>
+                    <input type="date" id="compraFecha" class="form-control mb-2">
+                    <textarea id="compraObservaciones" class="form-control mb-2" rows="2" placeholder="Observaciones"></textarea>
+                    <hr>
+                    <h6>Productos</h6>
+                    <div id="contenedor-productos-compra">
+                        <div class="row mb-2 producto-compra-item">
+                            <div class="col-md-5"><select class="form-control producto-select-compra"><option>Seleccionar producto...</option></select></div>
+                            <div class="col-md-3"><input type="number" class="form-control producto-cantidad-compra" placeholder="Cantidad"></div>
+                            <div class="col-md-3"><input type="number" class="form-control producto-precio-compra" placeholder="Precio unit."></div>
+                            <div class="col-md-1"><button class="btn btn-danger btn-sm eliminar-producto-compra" style="display:none">✖</button></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-success mb-2" id="agregarProductoCompra">➕ Agregar otro producto</button>
+                    <hr>
+                    <h5>Total: $<span id="compraTotal">0</span></h5>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-success" onclick="guardarCompra()">Guardar Compra</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/frontend/js/app.js"></script>
+    <!-- Footer con Créditos -->
+    <footer class="container-fluid mt-5 py-3" style="background-color: #0f172a; border-top: 1px solid #334155;">
+        <div class="container text-center">
+            <div class="row">
+                <div class="col-12">
+                    <p class="mb-0 small" style="color: #94a3b8;">
+                        <i class="fas fa-code me-1"></i> Desarrollado por <strong style="color: #10b981;">Leonardo Narvaez</strong>
+                    </p>
+                    <p class="mb-0 small" style="color: #64748b;">
+                        <i class="fas fa-calendar-alt me-1"></i> ECUAPULP - Sistema de Control de Inventario v1.0
+                    </p>
+                </div>
             </div>
         </div>
     </footer>
-    <!-- Chart.js para gráficos (al final del body, antes de tus scripts) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Nuestro JavaScript -->
-    <script src="/frontend/js/app.js"></script>
- 
+    <script>
+        // Mostrar nombre del usuario y enlace de administración
+        const usuarioData = localStorage.getItem('usuario');
+        if (usuarioData) {
+            const usuario = JSON.parse(usuarioData);
+            const nombreSpan = document.getElementById('usuario-nombre');
+            if (nombreSpan) nombreSpan.textContent = usuario.nombre || usuario.username;
+        
+            // Mostrar enlace solo si es admin
+            if (usuario.rol === 'admin') {
+                const adminLink = document.getElementById('adminLink');
+                if (adminLink) adminLink.style.display = 'inline-block';
+            }
+    }
+    
+    function cerrarSesion() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        window.location.href = '/frontend/login.html';
+    }
+</script>    
+<datalist id="listaProductos"></datalist>
 </body>
 </html>

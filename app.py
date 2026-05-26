@@ -26,6 +26,12 @@ if not url or not key:
 
 supabase: Client = create_client(url, key)
 
+# Usuarios locales (para login, independiente de Supabase)
+USUARIOS_LOCALES = {
+    'admin': {'password': 'nueva123', 'nombre': 'Administrador', 'rol': 'admin'},
+    'vendedor': {'password': 'ventas123', 'nombre': 'Vendedor', 'rol': 'vendedor'}
+}
+
 # =============================================
 # FUNCIONES AUXILIARES
 # =============================================
@@ -188,36 +194,25 @@ def create_producto():
     """Crear un nuevo producto con validaciones"""
     try:
         data = request.get_json()
-        
-        # Validaciones
-        if not data.get('codigo'):
-            return jsonify({"error": "El código es requerido"}), 400
-        
-        if not data.get('nombre'):
-            return jsonify({"error": "El nombre es requerido"}), 400
-        
-        # Verificar si el código ya existe
-        existe = supabase.table('productos').select("*").eq('codigo', data['codigo']).execute()
-        if existe.data:
-            return jsonify({"error": f"Ya existe un producto con código {data['codigo']}"}), 400
+        print("Datos recibidos:", data)  # Para debug
         
         nuevo_producto = {
-            "codigo": data['codigo'],
-            "nombre": data['nombre'],
-            "descripcion": data.get('descripcion'),
-            "tipo": data.get('tipo', 'materia_prima'),
-            "unidad_medida": data.get('unidad_medida', 'kg'),
-            "stock_minimo": data.get('stock_minimo', 0)
+            "codigo": data.get('codigo'),
+            "nombre": data.get('nombre'),
+            "descripcion": data.get('descripcion', ''),
+            "tipo": data.get('tipo'),
+            "unidad_medida": data.get('unidad_medida'),
+            "stock_minimo": data.get('stock_minimo', 0),
+            "precio": data.get('precio', 0)  # ← CLAVE: asegurar que precio está
         }
         
-        response = supabase.table('productos').insert(nuevo_producto).execute()
+        print("Guardando:", nuevo_producto)  # Para debug
         
-        return jsonify({
-            "mensaje": "Producto creado exitosamente",
-            "producto": response.data[0]
-        }), 201
+        response = supabase.table('productos').insert(nuevo_producto).execute()
+        return jsonify({"mensaje": "Producto creado", "producto": response.data[0]}), 201
     except Exception as e:
-        return manejar_error(e, "Error creando producto")
+        print("Error:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/productos/<int:id>', methods=['PUT'])
 def update_producto(id):
@@ -339,35 +334,41 @@ def get_terceros_por_tipo(tipo):
 # =============================================
 
 
-
 @app.route('/compras', methods=['POST'])
-def create_compra():
-    """Crear una nueva compra"""
+def crear_compra():
     try:
         data = request.get_json()
-        
-        # Validaciones básicas
-        if not data.get('proveedor_id'):
-            return jsonify({"error": "El proveedor es requerido"}), 400
         
         nueva_compra = {
             "proveedor_id": data['proveedor_id'],
             "fecha_compra": data.get('fecha_compra', datetime.now().strftime("%Y-%m-%d")),
-            "fecha_entrega": data.get('fecha_entrega'),
-            "estado": data.get('estado', 'pendiente'),
-            "total": data.get('total', 0),
-            "forma_pago": data.get('forma_pago'),
-            "observaciones": data.get('observaciones')
+            "estado": "pendiente",  # ← DEBE SER "pendiente", NO "recibida"
+            "total": 0,
+            "observaciones": data.get('observaciones', '')
         }
         
-        response = supabase.table('compras').insert(nueva_compra).execute()
+        compra_response = supabase.table('compras').insert(nueva_compra).execute()
+        compra_id = compra_response.data[0]['id']
         
-        return jsonify({
-            "mensaje": "Compra creada exitosamente",
-            "compra": response.data[0]
-        }), 201
+        total = 0
+        for item in data['productos']:
+            subtotal = item['cantidad'] * item['precio_unitario']
+            total += subtotal
+            detalle = {
+                "compra_id": compra_id,
+                "producto_id": item['producto_id'],
+                "cantidad": item['cantidad'],
+                "precio_unitario": item['precio_unitario'],
+                "subtotal": subtotal
+            }
+            supabase.table('detalle_compras').insert(detalle).execute()
+        
+        # Actualizar el total de la compra
+        supabase.table('compras').update({"total": total}).eq('id', compra_id).execute()
+        
+        return jsonify({"mensaje": "Compra creada exitosamente", "compra_id": compra_id}), 201
     except Exception as e:
-        return manejar_error(e, "Error creando compra")
+        return jsonify({"error": str(e)}), 500
 
 
 
@@ -380,7 +381,7 @@ def get_ventas():
     """Obtener todas las ventas"""
     try:
         response = supabase.table('ventas').select("*, cliente:terceros(*)").execute()
-        
+
         # Formatear la respuesta
         ventas = []
         for venta in response.data:
@@ -390,10 +391,11 @@ def get_ventas():
                 "cliente": venta['cliente']['nombre'] if venta['cliente'] else "N/A",
                 "total": venta['total'],
                 "estado_pago": venta['estado_pago'],
+                "estado_entrega": venta.get('estado_entrega', 'pendiente'),  # ← Agregar esta línea
                 "fecha_pactada": venta['fecha_pactada_pago']
             }
             ventas.append(venta_formateada)
-        
+
         return jsonify(ventas)
     except Exception as e:
         return manejar_error(e, "Error obteniendo ventas")
@@ -455,6 +457,94 @@ def ventas_pendientes():
     except Exception as e:
         return manejar_error(e, "Error obteniendo ventas pendientes")
 
+@app.route('/ventas/<int:id>', methods=['PUT'])
+def actualizar_venta(id):
+    try:
+        data = request.get_json()
+        
+        # Verificar que la venta existe
+        venta = supabase.table('ventas').select("*").eq('id', id).execute()
+        if not venta.data:
+            return jsonify({"error": "Venta no encontrada"}), 404
+        
+        # Caso especial: si se está marcando como entregada
+        if 'estado_entrega' in data and data['estado_entrega'] == 'entregado':
+            # Si ya estaba entregada, evitar doble entrega
+            if venta.data[0].get('estado_entrega') == 'entregado':
+                return jsonify({"error": "La venta ya fue entregada"}), 400
+            
+            # Obtener detalles de la venta con información del producto
+            detalles = supabase.table('detalle_ventas').select("*, producto:productos(*)").eq('venta_id', id).execute()
+            
+            faltantes = []
+            # Verificar stock suficiente para cada producto terminado
+            for detalle in detalles.data:
+                producto = detalle['producto']
+                if producto['tipo'] == 'producto_terminado':
+                    stock_actual = producto.get('stock_actual') or 0
+                    cantidad_vendida = detalle['cantidad']
+                    if stock_actual < cantidad_vendida:
+                        faltantes.append({
+                            "producto": producto['nombre'],
+                            "disponible": stock_actual,
+                            "necesario": cantidad_vendida,
+                            "faltante": cantidad_vendida - stock_actual
+                        })
+            
+            # Si hay faltantes, rechazar la entrega
+            if faltantes:
+                return jsonify({
+                    "error": "No se puede entregar porque falta stock",
+                    "faltantes": faltantes
+                }), 400
+            
+            # Descontar stock de cada producto terminado
+            for detalle in detalles.data:
+                producto = detalle['producto']
+                if producto['tipo'] == 'producto_terminado':
+                    nuevo_stock = (producto.get('stock_actual') or 0) - detalle['cantidad']
+                    supabase.table('productos').update({"stock_actual": nuevo_stock}).eq('id', producto['id']).execute()
+            
+            # Actualizar estado de entrega
+            supabase.table('ventas').update({"estado_entrega": "entregado"}).eq('id', id).execute()
+            
+            return jsonify({"mensaje": "Venta entregada y stock actualizado"})
+        
+        # Para otros casos (cambiar estado_pago, etc.)
+        campos_permitidos = ['estado_pago', 'estado_entrega']
+        update_data = {k: v for k, v in data.items() if k in campos_permitidos}
+        if update_data:
+            supabase.table('ventas').update(update_data).eq('id', id).execute()
+        
+        return jsonify({"mensaje": "Venta actualizada exitosamente"})
+    
+    except Exception as e:
+        print(f"Error en actualizar_venta: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/ventas/<int:id>', methods=['DELETE'])
+def eliminar_venta(id):
+    try:
+        # Verificar que la venta existe
+        venta = supabase.table('ventas').select("estado_entrega, estado_pago").eq('id', id).execute()
+        if not venta.data:
+            return jsonify({"error": "Venta no encontrada"}), 404
+        
+        estado_entrega = venta.data[0].get('estado_entrega')
+        estado_pago = venta.data[0].get('estado_pago')
+        
+        # Solo permitir eliminar si no está entregada ni pagada
+        if estado_entrega == 'entregado' or estado_pago == 'pagado':
+            return jsonify({"error": "No se puede eliminar una venta entregada o pagada"}), 400
+        
+        # Eliminar detalles (si la relación no tiene ON DELETE CASCADE, es necesario)
+        supabase.table('detalle_ventas').delete().eq('venta_id', id).execute()
+        supabase.table('ventas').delete().eq('id', id).execute()
+        
+        return jsonify({"mensaje": "Venta eliminada correctamente"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # =============================================
 # MÓDULO 5: PRODUCCIÓN (MEJORADO)
 # =============================================
@@ -506,6 +596,152 @@ def get_etapas_produccion(id):
         })
     except Exception as e:
         return manejar_error(e, f"Error obteniendo etapas de producción {id}")
+
+# =============================================
+# AUTENTICACIÓN - LOGIN
+# =============================================
+
+@app.route('/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if username not in USUARIOS_LOCALES:
+            return jsonify({"error": "Usuario no encontrado"}), 401
+        
+        usuario = USUARIOS_LOCALES[username]
+        if usuario['password'] != password:
+            return jsonify({"error": "Contraseña incorrecta"}), 401
+        
+        import uuid
+        token = str(uuid.uuid4())
+        
+        return jsonify({
+            "mensaje": "Login exitoso",
+            "token": token,
+            "usuario": {
+                "username": username,
+                "nombre": usuario['nombre'],
+                "rol": usuario['rol']
+            }
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    return jsonify({"mensaje": "Sesión cerrada"})
+
+@app.route('/verificar-sesion', methods=['GET'])
+def verificar_sesion():
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"error": "No autorizado"}), 401
+    return jsonify({"valido": True})
+
+@app.route('/ventas/<int:id>/editar', methods=['PUT'])
+def editar_venta_completa(id):
+    try:
+        data = request.get_json()
+        # Actualizar cabecera de la venta
+        supabase.table('ventas').update({
+            "cliente_id": data['cliente_id'],
+            "fecha_pactada_pago": data.get('fecha_pactada_pago'),
+            "observaciones": data.get('observaciones', '')
+        }).eq('id', id).execute()
+
+        # Eliminar detalles antiguos
+        supabase.table('detalle_ventas').delete().eq('venta_id', id).execute()
+
+        # Insertar nuevos detalles y recalcular total
+        total = 0
+        for item in data['productos']:
+            subtotal = item['cantidad'] * item['precio_unitario']
+            total += subtotal
+            supabase.table('detalle_ventas').insert({
+                "venta_id": id,
+                "producto_id": item['producto_id'],
+                "cantidad": item['cantidad'],
+                "precio_unitario": item['precio_unitario'],
+                "subtotal": subtotal
+            }).execute()
+
+        # Actualizar total en la venta
+        supabase.table('ventas').update({"total": total}).eq('id', id).execute()
+
+        return jsonify({"mensaje": "Venta actualizada correctamente"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# =============================================
+# ADMINISTRACIÓN DE USUARIOS (solo para admin)
+# =============================================
+
+# Usuarios locales (diccionario)
+USUARIOS_LOCALES = {
+    'admin': {'password': 'nueva123', 'nombre': 'Administrador', 'rol': 'admin'},
+    'vendedor': {'password': 'ventas123', 'nombre': 'Vendedor', 'rol': 'vendedor'}
+}
+
+@app.route('/api/usuarios', methods=['GET'])
+def get_usuarios():
+    usuarios_lista = []
+    for username, data in USUARIOS_LOCALES.items():
+        usuarios_lista.append({
+            "id": username,
+            "username": username,
+            "nombre": data['nombre'],
+            "rol": data['rol'],
+            "activo": True,
+            "password": "********"
+        })
+    return jsonify(usuarios_lista)
+
+@app.route('/api/usuarios', methods=['POST'])
+def crear_usuario():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    nombre = data.get('nombre', '')
+    rol = data.get('rol', 'vendedor')
+    
+    if not username or not password:
+        return jsonify({"error": "Usuario y contraseña son requeridos"}), 400
+    if username in USUARIOS_LOCALES:
+        return jsonify({"error": "El usuario ya existe"}), 400
+    
+    USUARIOS_LOCALES[username] = {
+        'password': password,
+        'nombre': nombre,
+        'rol': rol
+    }
+    return jsonify({"mensaje": "Usuario creado", "usuario": {"username": username, "nombre": nombre, "rol": rol}}), 201
+
+@app.route('/api/usuarios/<string:username>', methods=['PUT'])
+def actualizar_usuario(username):
+    data = request.get_json()
+    if username not in USUARIOS_LOCALES:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+    
+    if 'nombre' in data:
+        USUARIOS_LOCALES[username]['nombre'] = data['nombre']
+    if 'rol' in data:
+        USUARIOS_LOCALES[username]['rol'] = data['rol']
+    if 'password' in data and data['password']:
+        USUARIOS_LOCALES[username]['password'] = data['password']
+    
+    return jsonify({"mensaje": "Usuario actualizado"})
+
+@app.route('/api/usuarios/<string:username>', methods=['DELETE'])
+def eliminar_usuario(username):
+    if username not in USUARIOS_LOCALES:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+    if username == 'admin':
+        return jsonify({"error": "No se puede eliminar al administrador principal"}), 400
+    del USUARIOS_LOCALES[username]
+    return jsonify({"mensaje": "Usuario eliminado"})
 
 # =============================================
 # INICIO DEL SERVIDOR
@@ -568,20 +804,20 @@ def serve_frontend_files(path):
 
 @app.route('/ventas/detalle', methods=['POST'])
 def crear_venta_con_detalle():
-    """Crear una venta con sus productos"""
+    """Crear una venta con sus productos y alertar si hay stock insuficiente"""
     try:
         data = request.get_json()
-        
+
         # Validar datos básicos
         if not data.get('cliente_id'):
             return jsonify({"error": "Cliente requerido"}), 400
         if not data.get('productos') or len(data['productos']) == 0:
             return jsonify({"error": "Debe incluir productos"}), 400
-        
+
         # Calcular total
-        total = sum(item['cantidad'] * item['precio_unitario'] 
+        total = sum(item['cantidad'] * item['precio_unitario']
                    for item in data['productos'])
-        
+
         # 1. Crear la venta
         nueva_venta = {
             "cliente_id": data['cliente_id'],
@@ -591,10 +827,10 @@ def crear_venta_con_detalle():
             "total": total,
             "observaciones": data.get('observaciones')
         }
-        
+
         venta_response = supabase.table('ventas').insert(nueva_venta).execute()
         venta_id = venta_response.data[0]['id']
-        
+
         # 2. Insertar cada producto
         for item in data['productos']:
             detalle = {
@@ -605,17 +841,34 @@ def crear_venta_con_detalle():
                 "subtotal": item['cantidad'] * item['precio_unitario']
             }
             supabase.table('detalle_ventas').insert(detalle).execute()
-        
-        # 3. Obtener la venta completa con detalles
+
+        # 3. Verificar stock insuficiente (después de crear la venta)
+        faltantes = []
+        for item in data['productos']:
+            prod = supabase.table('productos').select("nombre, stock_actual").eq('id', item['producto_id']).execute()
+            if prod.data:
+                stock = prod.data[0].get('stock_actual')
+                if stock is None:
+                    stock = 0
+                if stock < item['cantidad']:
+                    faltantes.append({
+                        "producto": prod.data[0]['nombre'],
+                        "solicitado": item['cantidad'],
+                        "disponible": stock,
+                        "faltante": item['cantidad'] - stock
+                    })
+
+        # 4. Obtener la venta completa con detalles
         venta_completa = supabase.table('ventas').select("*, cliente:terceros(*)").eq('id', venta_id).execute()
         detalles = supabase.table('detalle_ventas').select("*, producto:productos(*)").eq('venta_id', venta_id).execute()
-        
+
         return jsonify({
             "mensaje": "Venta creada exitosamente",
             "venta": venta_completa.data[0],
-            "detalles": detalles.data
+            "detalles": detalles.data,
+            "faltantes": faltantes   # ← Lista de productos con stock insuficiente
         }), 201
-        
+
     except Exception as e:
         return manejar_error(e, "Error creando venta")
 
@@ -684,48 +937,6 @@ def get_compra(id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/compras', methods=['POST'])
-def crear_compra():
-    """Crear una nueva compra"""
-    try:
-        data = request.get_json()
-        
-        if not data.get('proveedor_id'):
-            return jsonify({"error": "Proveedor requerido"}), 400
-        if not data.get('productos') or len(data['productos']) == 0:
-            return jsonify({"error": "Debe incluir productos"}), 400
-        
-        # 1. Crear la compra
-        nueva_compra = {
-            "proveedor_id": data['proveedor_id'],
-            "fecha_compra": data.get('fecha_compra', datetime.now().strftime("%Y-%m-%d")),
-            "fecha_entrega": data.get('fecha_entrega'),
-            "estado": data.get('estado', 'pendiente'),
-            "forma_pago": data.get('forma_pago'),
-            "observaciones": data.get('observaciones')
-        }
-        
-        compra_response = supabase.table('compras').insert(nueva_compra).execute()
-        compra_id = compra_response.data[0]['id']
-        
-        # 2. Insertar productos
-        for item in data['productos']:
-            detalle = {
-                "compra_id": compra_id,
-                "producto_id": item['producto_id'],
-                "cantidad": item['cantidad'],
-                "precio_unitario": item['precio_unitario'],
-                "subtotal": item['cantidad'] * item['precio_unitario']
-            }
-            supabase.table('detalle_compras').insert(detalle).execute()
-        
-        return jsonify({
-            "mensaje": "Compra creada exitosamente",
-            "compra_id": compra_id
-        }), 201
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/compras/<int:id>/recibir', methods=['PUT'])
 def recibir_compra(id):
@@ -793,7 +1004,58 @@ def get_proveedores():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-   # =============================================
+# =============================================
+# ENDPOINTS PARA TERCEROS (CRUD completo)
+# =============================================
+
+@app.route('/terceros/<int:id>', methods=['GET'])
+def get_tercero(id):
+    """Obtener un tercero por ID"""
+    try:
+        response = supabase.table('terceros').select("*").eq('id', id).execute()
+        if not response.data:
+            return jsonify({"error": "No encontrado"}), 404
+        return jsonify(response.data[0])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/terceros/<int:id>', methods=['PUT'])
+def actualizar_tercero(id):
+    """Actualizar un tercero"""
+    try:
+        data = request.get_json()
+        supabase.table('terceros').update(data).eq('id', id).execute()
+        return jsonify({"mensaje": "Actualizado correctamente"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/terceros/<int:id>', methods=['DELETE'])
+def eliminar_tercero(id):
+    """Eliminar un tercero (cliente/proveedor)"""
+    try:
+        # Verificar si existe
+        existe = supabase.table('terceros').select("*").eq('id', id).execute()
+        if not existe.data:
+            return jsonify({"error": "No encontrado"}), 404
+        
+        # Verificar si tiene ventas asociadas
+        ventas = supabase.table('ventas').select("*").eq('cliente_id', id).execute()
+        if ventas.data:
+            return jsonify({"error": f"No se puede eliminar: tiene {len(ventas.data)} ventas asociadas"}), 400
+        
+        # Verificar si tiene compras asociadas
+        compras = supabase.table('compras').select("*").eq('proveedor_id', id).execute()
+        if compras.data:
+            return jsonify({"error": f"No se puede eliminar: tiene {len(compras.data)} compras asociadas"}), 400
+        
+        # Si no tiene dependencias, eliminar
+        supabase.table('terceros').delete().eq('id', id).execute()
+        return jsonify({"mensaje": "Eliminado correctamente"})
+        
+    except Exception as e:
+        print(f"Error al eliminar: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+# =============================================
 # INICIO DEL SERVIDOR - VERSIÓN PARA RAILWAY
 # =============================================
 if __name__ == '__main__':

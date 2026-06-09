@@ -17,25 +17,20 @@ CORS(app)  # Habilitar CORS para todos los dominios
 
 # Configuración desde variables de entorno
 url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")            # anon key (para el resto de la app)
-service_key = os.getenv("SUPABASE_SERVICE_KEY")  # service_role key (para administración)
-
-supabase = create_client(url, key)
-supabase_admin = create_client(url, service_key) if service_key else None
+key = os.getenv("SUPABASE_KEY")
 
 if not url or not key:
     print("❌ ERROR: No se encontraron las variables SUPABASE_URL y SUPABASE_KEY")
     print("Crea un archivo .env con esos valores")
     exit(1)
 
-supabase: Client = create_client(url, key)  # cliente normal (anon)
-supabase_admin: Client = create_client(url, service_key) if service_key else None  # cliente admin (service_role)
+supabase: Client = create_client(url, key)
 
 # Usuarios locales (para login, independiente de Supabase)
-#USUARIOS_LOCALES = {
-#    'admin': {'password': 'nueva123', 'nombre': 'Administrador', 'rol': 'admin'},
-#    'vendedor': {'password': 'ventas123', 'nombre': 'Vendedor', 'rol': 'vendedor'}
-#}
+USUARIOS_LOCALES = {
+    'admin': {'password': 'nueva123', 'nombre': 'Administrador', 'rol': 'admin'},
+    'vendedor': {'password': 'ventas123', 'nombre': 'Vendedor', 'rol': 'vendedor'}
+}
 
 # =============================================
 # FUNCIONES AUXILIARES
@@ -611,31 +606,46 @@ def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
-
-    # Usar supabase_admin para saltarse RLS
-    if not supabase_admin:
-        return jsonify({"error": "Error interno de autenticación"}), 500
-
-    user = supabase_admin.table('usuarios').select("*").eq('username', username).eq('activo', True).execute()
-    if not user.data:
-        return jsonify({"error": "Usuario no encontrado"}), 401
-
-    usuario = user.data[0]
-    if usuario['password'] != password:
-        return jsonify({"error": "Contraseña incorrecta"}), 401
-
-    import uuid
-    token = str(uuid.uuid4())
-    return jsonify({
-        "mensaje": "Login exitoso",
-        "token": token,
-        "usuario": {
-            "id": usuario['id'],
-            "username": usuario['username'],
-            "nombre": usuario['nombre'],
-            "rol": usuario['rol']
-        }
-    })
+    
+    # Buscar en Supabase
+    user = supabase.table('usuarios').select("*").eq('username', username).eq('activo', True).execute()
+    if user.data:
+        usuario = user.data[0]
+        if usuario['password'] == password:
+            import uuid
+            token = str(uuid.uuid4())
+            return jsonify({
+                "mensaje": "Login exitoso",
+                "token": token,
+                "usuario": {
+                    "id": usuario['id'],
+                    "username": usuario['username'],
+                    "nombre": usuario['nombre'],
+                    "rol": usuario['rol']
+                }
+            })
+        else:
+            return jsonify({"error": "Contraseña incorrecta"}), 401
+    
+    # Respaldo local (por si acaso)
+    usuarios_locales = {
+        'admin': {'password': 'nueva123', 'nombre': 'Administrador', 'rol': 'admin'},
+        'vendedor': {'password': 'ventas123', 'nombre': 'Vendedor', 'rol': 'vendedor'}
+    }
+    if username in usuarios_locales and usuarios_locales[username]['password'] == password:
+        import uuid
+        token = str(uuid.uuid4())
+        return jsonify({
+            "mensaje": "Login exitoso (local)",
+            "token": token,
+            "usuario": {
+                "username": username,
+                "nombre": usuarios_locales[username]['nombre'],
+                "rol": usuarios_locales[username]['rol']
+            }
+        })
+    
+    return jsonify({"error": "Usuario no encontrado"}), 401
 
 @app.route('/logout', methods=['POST'])
 def logout():
@@ -686,20 +696,23 @@ def editar_venta_completa(id):
 # ADMINISTRACIÓN DE USUARIOS (solo para admin)
 # =============================================
 
+# Usuarios locales (diccionario)
+USUARIOS_LOCALES = {
+    'admin': {'password': 'nueva123', 'nombre': 'Administrador', 'rol': 'admin'},
+    'vendedor': {'password': 'ventas123', 'nombre': 'Vendedor', 'rol': 'vendedor'}
+}
 
 @app.route('/api/usuarios', methods=['GET'])
 def get_usuarios():
-    if not supabase_admin:
-        return jsonify({"error": "Clave de servicio no configurada"}), 500
     try:
-        response = supabase_admin.table('usuarios').select("*").execute()
+        response = supabase.table('usuarios').select("*").execute()
         usuarios = response.data
         for u in usuarios:
             u['password'] = '********'
         return jsonify(usuarios)
     except Exception as e:
         print(f"Error en /api/usuarios: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify([]), 500   # ← posiblemente aquí está devolviendo []
 
 @app.route('/api/usuarios', methods=['POST'])
 def crear_usuario():
@@ -724,13 +737,11 @@ def crear_usuario():
         "rol": rol,
         "activo": True
     }
-    supabase_admin.table('usuarios').insert(nuevo).execute()
+    supabase.table('usuarios').insert(nuevo).execute()
     return jsonify({"mensaje": "Usuario creado", "usuario": {"username": username, "nombre": nombre, "rol": rol}}), 201
 
 @app.route('/api/usuarios/<string:username>', methods=['PUT'])
 def actualizar_usuario(username):
-    if not supabase_admin:
-        return jsonify({"error": "Clave de servicio no configurada"}), 500
     data = request.get_json()
     update_data = {}
     if 'nombre' in data:
@@ -741,37 +752,23 @@ def actualizar_usuario(username):
         update_data['password'] = data['password']
     if 'activo' in data:
         update_data['activo'] = data['activo']
+    
     if not update_data:
         return jsonify({"error": "No hay datos para actualizar"}), 400
-    result = supabase_admin.table('usuarios').update(update_data).eq('username', username).execute()
+    
+    result = supabase.table('usuarios').update(update_data).eq('username', username).execute()
     if not result.data:
         return jsonify({"error": "Usuario no encontrado"}), 404
     return jsonify({"mensaje": "Usuario actualizado"})
 
 @app.route('/api/usuarios/<string:username>', methods=['DELETE'])
 def eliminar_usuario(username):
-    if not supabase_admin:
-        return jsonify({"error": "Clave de servicio no configurada"}), 500
     if username == 'admin':
         return jsonify({"error": "No se puede eliminar al administrador principal"}), 400
-    result = supabase_admin.table('usuarios').delete().eq('username', username).execute()
+    result = supabase.table('usuarios').delete().eq('username', username).execute()
     if not result.data:
         return jsonify({"error": "Usuario no encontrado"}), 404
     return jsonify({"mensaje": "Usuario eliminado"})
-
-@app.route('/api/usuarios/<string:username>', methods=['GET'])
-def obtener_usuario(username):
-    if not supabase_admin:
-        return jsonify({"error": "Clave de servicio no configurada"}), 500
-    try:
-        result = supabase_admin.table('usuarios').select("*").eq('username', username).execute()
-        if not result.data:
-            return jsonify({"error": "Usuario no encontrado"}), 404
-        usuario = result.data[0]
-        usuario['password'] = '********'  # ocultar contraseña
-        return jsonify(usuario)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # =============================================
 # INICIO DEL SERVIDOR
